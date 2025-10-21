@@ -1,0 +1,79 @@
+import zipfile
+from pathlib import Path
+from mido import Message, MidiFile, MidiTrack, MetaMessage
+
+# === Setup folder & nama file ===
+output_dir = Path("No_Rules_Just_Rhythm_Firman_Pack")
+output_dir.mkdir(exist_ok=True)
+zip_filename = "No_Rules_Just_Rhythm_Firman_ProductionPack.zip"
+
+# === Data umum ===
+tempo_bpm = [95, 97, 92, 90]  # perubahan tempo (dinamika)
+base_tempo = 500000            # 120 bpm = 500000 microsec per beat (akan diubah)
+ticks_per_beat = 480
+
+# === Fungsi bantu ===
+def bpm_to_micros(bpm): return int(60_000_000 / bpm)
+
+# === Buat MIDI melodi vokal Muse-style ===
+mid = MidiFile(ticks_per_beat=ticks_per_beat)
+track = MidiTrack()
+mid.tracks.append(track)
+
+# tempo automation
+for i, bpm in enumerate(tempo_bpm):
+    track.append(MetaMessage('set_tempo', tempo=bpm_to_micros(bpm), time=i*1920))
+
+# marker section
+sections = ["Intro", "Verse 1", "Chorus 1", "Verse 2", "Bridge", "Chorus 2", "Outro"]
+for i, name in enumerate(sections):
+    track.append(MetaMessage('marker', text=name, time=i*1920))
+
+# channel vocal dummy (Muse-style: falsetto + sustain notes)
+notes = [60, 62, 65, 67, 69, 67, 65, 64, 67, 72, 71, 69, 67, 65]
+durations = [480, 480, 960, 960, 480, 480, 960, 960, 960, 960, 960, 480, 480, 1920]
+velocity = [90, 92, 95, 100, 97, 93, 90, 88, 94, 96, 98, 95, 90, 85]
+
+time = 0
+for n, d, v in zip(notes, durations, velocity):
+    track.append(Message('note_on', note=n, velocity=v, time=time))
+    track.append(Message('note_off', note=n, velocity=64, time=d))
+    time = 0
+
+mid.save(output_dir / "No_Rules_Just_Rhythm_Firman_Preview.mid")
+
+# === Panduan file ===
+panduan = """No Rules, Just Rhythm – Firman
+--------------------------------------
+Nada dasar: C Mayor
+Tempo Automation: 95 → 97 → 92 → 90 BPM
+Gaya vokal: Muse-style (male rock)
+Durasi: ±4 menit
+
+Instrumen:
+1. Drum hybrid (GM Standard Map)
+2. Bass groove
+3. Gitar ritme
+4. Synth futuristik (pad + arpeggio 1/16)
+5. Vokal dummy (melodi utama)
+
+Marker section:
+Intro, Verse 1, Chorus 1, Verse 2, Bridge, Chorus 2, Outro
+
+Tips Mixing di FL Studio:
+- Drum → FPC (preset GM)
+- Bass → FLEX "Solid Bass"
+- Gitar → FLEX "Clean Strat"
+- Synth → Sytrus "Dreamy Pad"
+- Vocal dummy → MIDI ke channel synth lead
+"""
+
+panduan_txt = output_dir / "Panduan_FL_Studio_NoRules.txt"
+panduan_txt.write_text(panduan)
+
+# === ZIP final ===
+with zipfile.ZipFile(zip_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
+    zipf.write(output_dir / "No_Rules_Just_Rhythm_Firman_Preview.mid", arcname="No_Rules_Just_Rhythm_Firman_Preview.mid")
+    zipf.write(panduan_txt, arcname="Panduan_FL_Studio_NoRules.txt")
+
+print(f"✅ Selesai! File ZIP: {zip_filename} sudah siap.")
